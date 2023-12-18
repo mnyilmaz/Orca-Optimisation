@@ -1,7 +1,7 @@
 # Embedded Linux Project Repository
 
 <p align="center">
-  <img src="https://i.pinimg.com/originals/86/31/83/863183316ed35cfeda7baf9ee1de0596.gif" alt="Project Logo" width="300" height="300">
+  <img src="https://media2.giphy.com/media/vvcB7ZS8pMEPViI0l2/200w.gif?cid=6c09b952thg6snmo7u4qm5rnrqm0fp4tcrdffafjxz0bhm38&ep=v1_gifs_search&rid=200w.gif&ct=g" alt="Project Logo" width="300" height="300">
 </p>
 
 ## Overview
