@@ -36,145 +36,87 @@ temelini oluşturur. ACO, özellikle yol bulma, rota planlama ve benzeri optimiz
     Katil balinaların yemek peşinde oldukları gözleri sırasında en iyi yolu bulmaları gerekir. Bunda en önemli 
     etkenlerden birisi de yemeğin bıraktığı iz yani feromon miktarıdır. 
     
+    Orca başlangıçta (-64.8, 0.0) konumunda olacak
+    Orca yolun sonunda (-34.9, -56.2) konumunda olacak 
+
 
 '''
 
-
 import random
 import numpy as np
+import math
+import statistics
 
 class AntColony:
-    def __init__(self, distances, n_ants, n_best, n_iterations, decay, alpha=1, beta=1):
-        """
-        Initialize the Ant Colony Optimization algorithm.
-
-        :param distances: 2D numpy array of distances. The index [i, j] is the distance from city i to j.
-        :param n_ants: Number of ants to run per iteration.
-        :param n_best: Number of best ants who deposit pheromone.
-        :param n_iterations: Number of iterations to run the algorithm for.
-        :param decay: Rate at which pheromone decays. The higher the value, the faster it decays.
-        :param alpha: Influence of pheromone on direction.
-        :param beta: Influence of distance on direction.
-        """
-        self.distances  = distances
-        self.pheromone = np.ones(self.distances.shape) / len(distances)
-        self.all_inds = range(len(distances))
-        self.n_ants = n_ants
-        self.n_best = n_best
+    def __init__(self, n_waypoints, orcas, n_iterations, decay_rate):
+        self.distances = np.random.rand(n_waypoints, n_waypoints)
+        self.pheromone = np.ones(self.distances.shape) / n_waypoints
+        self.orcas = orcas
         self.n_iterations = n_iterations
-        self.decay = decay
-        self.alpha = alpha
-        self.beta = beta
+        self.decay_rate = decay_rate
 
     def run(self):
         shortest_path = None
-        all_time_shortest_path = ("placeholder", np.inf)
-        for i in range(self.n_iterations):
-            all_paths = self.gen_all_paths()
-            self.spread_pheronome(all_paths, self.n_best, shortest_path=shortest_path)
-            shortest_path = min(all_paths, key=lambda x: x[1])
-            if shortest_path[1] < all_time_shortest_path[1]:
-                all_time_shortest_path = shortest_path            
-            self.pheromone * self.decay
-        return all_time_shortest_path
+        shortest_path_length = float('inf')
+        for _ in range(self.n_iterations):
+            for _ in range(self.orcas):
+                path, length = self.generate_path()
+                if length < shortest_path_length:
+                    shortest_path = path
+                    shortest_path_length = length
+            self.update_pheromone(shortest_path, shortest_path_length)
+            self.pheromone *= self.decay_rate
+        return shortest_path, shortest_path_length
 
-    def spread_pheronome(self, all_paths, n_best, shortest_path):
-        sorted_paths = sorted(all_paths, key=lambda x: x[1])
-        for path, dist in sorted_paths[:n_best]:
-            for move in path:
-                self.pheromone[move] += 1.0 / self.distances[move]
+    def generate_path(self):
+        path = [random.randint(0, len(self.distances) - 1)]
+        while len(path) < len(self.distances):
+            current = path[-1]
+            next_node = self.select_next_node(current)
+            path.append(next_node)
+        path_length = self.calculate_path_length(path)
+        return path, path_length
 
-    def gen_path_dist(self, path):
-        total_dist = 0
-        for ele in path:
-            total_dist += self.distances[ele]
-        return total_dist
+    def select_next_node(self, current):
+        probabilities = self.pheromone[current] / self.pheromone[current].sum()
+        next_node = np.random.choice(len(self.distances), p=probabilities)
+        return next_node
 
-    def gen_all_paths(self):
-        all_paths = []
-        for i in range(self.n_ants):
-            path = self.gen_path(0)
-            all_paths.append((path, self.gen_path_dist(path)))
-        return all_paths
+    def calculate_path_length(self, path):
+        length = 0
+        for i in range(len(path) - 1):
+            length += self.distances[path[i]][path[i+1]]
+        return length
 
-    def gen_path(self, start):
-        path = []
-        visited = set()
-        visited.add(start)
-        prev = start
-        for i in range(len(self.distances) - 1):
-            move = self.pick_move(self.pheromone[prev], self.distances[prev], visited)
-            path.append((prev, move))
-            prev = move
-            visited.add(move)
-        path.append((prev, start)) # going back to where we started
-        return path
+    def update_pheromone(self, path, length):
+        for i in range(len(path) - 1):
+            self.pheromone[path[i]][path[i+1]] += 1 / length
+    
 
-    def pick_move(self, pheromone, dist, visited):
-        pheromone = np.copy(pheromone)
-        pheromone[list(visited)] = 0
+def euclid_algorithm(x1, y1, x2, y2):
+    return math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
 
-        row = pheromone ** self.alpha * ((1.0 / dist) ** self.beta)
+# Orca'nın başlangıç ve bitiş koordinatları
+x1, y1 = -64.8, 0.0
+x2, y2 = -34.9, -56.2
 
-        # Check if row contains NaN and handle it
-        if np.isnan(row).any():
-            row = np.nan_to_num(row)  # Replace NaN with zero
-
-        total = row.sum()
-        if total == 0:
-            norm_row = np.ones(len(row)) / len(row)  # Uniform probabilities if total is 0
-        else:
-            norm_row = row / total
-
-        move = np_choice(self.all_inds, 1, p=norm_row)[0]
-        return move
-
-
-# This function should be outside the AntColony class
-def np_choice(a, size, replace=True, p=None):
-    return np.array(np.random.choice(a, size=size, replace=replace, p=p))
-
-# This function should also be outside the AntColony class
-def run_aco_multiple_times(distances, num_runs=100):
-    shortest_paths = []
-    for _ in range(num_runs):
-        aco = AntColony(distances, 10, 3, 100, 0.95, alpha=1, beta=2)
-        shortest_path = aco.run()
-        shortest_paths.append(shortest_path[1])  # Store the length of the shortest path
-
-    return shortest_paths
+# Mesafe hesaplama
+distance = euclid_algorithm(x1, x2, y1, y2)
+print("Orca'nın göç mesafesi:", distance)
 
 # Example usage
-distances = np.random.rand(-64,1, -68)
-distances = distances + distances.T  # Make it symmetric
-np.fill_diagonal(distances, 0)  # Zero diagonal
+n_waypoints = 5  # TGöç durakları
+shortest_path_lengths = []
 
-shortest_paths = run_aco_multiple_times(distances, 100)
-mean_length = np.mean(shortest_paths)
-std_dev_length = np.std(shortest_paths)
+for i in range (100):
+    ant_colony = AntColony(n_waypoints, orcas=10, n_iterations=100, decay_rate=0.8)
+    shortest_path, shortest_path_length = ant_colony.run()
+    shortest_path_lengths.append(shortest_path_length)
+    print(f"En kısa yol: {shortest_path_length}")
 
-print("Mean length of shortest path: ", mean_length)
-print("Standard deviation: ", std_dev_length)
 
-import numpy as np
+mean_shortest_paths = statistics.mean(shortest_path_lengths)
+std_dev_shortest_paths = statistics.stdev(shortest_path_lengths)
 
-def calculate_distance(coord1, coord2):
-    """İki koordinat arasındaki doğrusal mesafeyi hesaplar."""
-    return ((coord1[0] - coord2[0]) ** 2 + (coord1[1] - coord2[1]) ** 2) ** 0.5
-
-def create_distance_matrix(coords):
-    """Koordinatlar listesinden mesafe matrisi oluşturur."""
-    n = len(coords)
-    distance_matrix = np.zeros((n, n))
-    for i in range(n):
-        for j in range(n):
-            distance_matrix[i][j] = calculate_distance(coords[i], coords[j])
-    return distance_matrix
-
-# Koordinatların tanımlanması
-coords = [(-64.8, -64.1), (-34.9, -56.2)]  # Başlangıç ve bitiş koordinatları
-# Ara noktaları buraya ekleyebilirsiniz, örneğin: coords.append((x, y))
-
-# Mesafe matrisinin oluşturulması
-distances = create_distance_matrix(coords)
-
+print(f"En kısa yolların ortalaması: {mean_shortest_paths}")
+print(f"En kısa yolların standart sapması: {std_dev_shortest_paths}")
